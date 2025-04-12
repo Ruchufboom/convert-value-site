@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Конвертер валют | ЦБ РФ</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --background-color: #f9f9f9;
+            --card-color: #ffffff;
+            --text-color: #333333;
+            --border-color: #e0e0e0;
+            --success-color: #27ae60;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--background-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: var(--text-color);
+        }
+
+        .container {
+            background-color: var(--card-color);
+            border-radius: 12px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            width: 100%;
+            max-width: 500px;
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--primary-color);
+            margin-bottom: 30px;
+        }
+
+        .input-group, .output-group {
+            display: flex;
+            margin-bottom: 20px;
+            align-items: center;
+            gap: 10px;
+        }
+
+        input {
+            flex: 1;
+            padding: 14px 16px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            -moz-appearance: textfield;
+        }
+
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--secondary-color);
+        }
+
+        select {
+            padding: 14px 16px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 16px;
+            background-color: white;
+            cursor: pointer;
+            min-width: 150px;
+        }
+
+        .result-container {
+            position: relative;
+            flex: 1;
+        }
+
+        .result {
+            font-size: 28px;
+            font-weight: bold;
+            color: var(--primary-color);
+            padding: 18px;
+            background-color: rgba(52, 152, 219, 0.1);
+            border-radius: 8px;
+            text-align: center;
+            width: 100%;
+            box-sizing: border-box;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .result:hover {
+            background-color: rgba(52, 152, 219, 0.2);
+        }
+
+        .copy-notification {
+            position: absolute;
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: var(--success-color);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+
+        .copy-notification.show {
+            opacity: 1;
+        }
+
+        .swap-btn {
+            background-color: var(--secondary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 20px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px auto 20px;
+            display: block;
+            transition: background-color 0.3s;
+        }
+
+        .swap-btn:hover {
+            background-color: #2980b9;
+        }
+
+        .rate-info {
+            text-align: center;
+            margin-top: 15px;
+            font-size: 14px;
+            color: #7f8c8d;
+        }
+
+        .date-info {
+            text-align: center;
+            margin-top: 5px;
+            font-size: 12px;
+            color: #95a5a6;
+        }
+
+        @media (max-width: 600px) {
+            .input-group, .output-group {
+                flex-direction: column;
+            }
+            
+            select {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Конвертер валют</h1>
+        
+        <div class="input-group">
+            <input type="number" id="amount" value="1" min="0" step="0.01" placeholder="Сумма">
+            <select id="from-currency">
+                <option value="RUB">RUB (Российский рубль)</option>
+                <option value="USD" selected>USD (Доллар США)</option>
+                <option value="EUR">EUR (Евро)</option>
+                <option value="CNY">CNY (Китайский юань)</option>
+            </select>
+        </div>
+        
+        <button class="swap-btn" id="swap-btn">⇅ Поменять валюты</button>
+        
+        <div class="output-group">
+            <div class="result-container">
+                <div class="result" id="result">0,00</div>
+                <div class="copy-notification" id="copy-notification">Скопировано!</div>
+            </div>
+            <select id="to-currency">
+                <option value="RUB" selected>RUB (Российский рубль)</option>
+                <option value="USD">USD (Доллар США)</option>
+                <option value="EUR">EUR (Евро)</option>
+                <option value="CNY">CNY (Китайский юань)</option>
+            </select>
+        </div>
+
+        <div class="rate-info" id="rate-info">1 USD = 0,00 RUB</div>
+        <div class="date-info" id="date-info">Загрузка курсов...</div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const amountInput = document.getElementById('amount');
+            const fromCurrencySelect = document.getElementById('from-currency');
+            const toCurrencySelect = document.getElementById('to-currency');
+            const resultDiv = document.getElementById('result');
+            const swapBtn = document.getElementById('swap-btn');
+            const rateInfo = document.getElementById('rate-info');
+            const dateInfo = document.getElementById('date-info');
+            const copyNotification = document.getElementById('copy-notification');
+            
+            // Кэш курсов валют
+            let rates = {
+                "RUB": { Value: 1, Nominal: 1 },
+                "USD": { Value: 90.0, Nominal: 1 },
+                "EUR": { Value: 100.0, Nominal: 1 },
+                "CNY": { Value: 12.5, Nominal: 1 }
+            };
+            
+            // Загрузка курсов валют с API ЦБ РФ
+            async function loadRates() {
+                try {
+                    // Используем CORS прокси для обхода ограничений Netlify
+                    const proxyUrl = 'https://api.allorigins.win/get?url=';
+                    const apiUrl = encodeURIComponent('https://www.cbr-xml-daily.ru/daily_json.js');
+                    
+                    const response = await fetch(proxyUrl + apiUrl);
+                    const data = await response.json();
+                    const ratesData = JSON.parse(data.contents);
+                    
+                    rates["USD"] = ratesData.Valute.USD;
+                    rates["EUR"] = ratesData.Valute.EUR;
+                    rates["CNY"] = ratesData.Valute.CNY;
+                    
+                    const updateDate = new Date(ratesData.Date);
+                    dateInfo.textContent = `Курс ЦБ РФ на ${updateDate.toLocaleDateString('ru-RU')}`;
+                    
+                    convert();
+                    updateRateInfo();
+                } catch (error) {
+                    console.error('Ошибка загрузки курсов:', error);
+                    dateInfo.textContent = 'Используются последние известные курсы';
+                    convert();
+                    updateRateInfo();
+                }
+            }
+            
+            // Функция для замены точки на запятую в числе
+            function formatNumber(number) {
+                return number.toFixed(2).replace('.', ',');
+            }
+            
+            // Конвертация валют
+            function convert() {
+                const amount = parseFloat(amountInput.value.replace(',', '.') || 0);
+                const fromCurrency = fromCurrencySelect.value;
+                const toCurrency = toCurrencySelect.value;
+                
+                if (isNaN(amount) || amount < 0) {
+                    resultDiv.textContent = '0,00';
+                    return;
+                }
+                
+                if (fromCurrency === toCurrency) {
+                    resultDiv.textContent = formatNumber(amount);
+                    return;
+                }
+                
+                // Конвертация через рубли
+                const fromRate = rates[fromCurrency];
+                const toRate = rates[toCurrency];
+                
+                const rubAmount = amount * (fromRate.Value / fromRate.Nominal);
+                const result = rubAmount / (toRate.Value / toRate.Nominal);
+                
+                resultDiv.textContent = formatNumber(result);
+            }
+            
+            // Обновление информации о текущем курсе
+            function updateRateInfo() {
+                const fromCurrency = fromCurrencySelect.value;
+                const toCurrency = toCurrencySelect.value;
+                
+                if (fromCurrency === toCurrency) {
+                    rateInfo.textContent = `1 ${fromCurrency} = 1,00 ${toCurrency}`;
+                    return;
+                }
+                
+                const fromRate = rates[fromCurrency];
+                const toRate = rates[toCurrency];
+                
+                const rate = (fromRate.Value / fromRate.Nominal) / (toRate.Value / toRate.Nominal);
+                rateInfo.textContent = `1 ${fromCurrency} = ${formatNumber(rate)} ${toCurrency}`;
+            }
+            
+            // Копирование результата в буфер обмена (только число)
+            function copyResultToClipboard() {
+                const resultText = resultDiv.textContent.replace(',', '.');
+                
+                navigator.clipboard.writeText(resultText).then(() => {
+                    // Показываем уведомление о копировании
+                    copyNotification.classList.add('show');
+                    setTimeout(() => {
+                        copyNotification.classList.remove('show');
+                    }, 2000);
+                }).catch(err => {
+                    console.error('Ошибка копирования: ', err);
+                    // Альтернативный способ для старых браузеров
+                    const textarea = document.createElement('textarea');
+                    textarea.value = resultText;
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    try {
+                        document.execCommand('copy');
+                        copyNotification.classList.add('show');
+                        setTimeout(() => {
+                            copyNotification.classList.remove('show');
+                        }, 2000);
+                    } catch (e) {
+                        console.error('Ошибка копирования (старый метод): ', e);
+                    }
+                    document.body.removeChild(textarea);
+                });
+            }
+            
+            // Обработчики событий
+            amountInput.addEventListener('input', convert);
+            fromCurrencySelect.addEventListener('change', function() {
+                convert();
+                updateRateInfo();
+            });
+            toCurrencySelect.addEventListener('change', function() {
+                convert();
+                updateRateInfo();
+            });
+            
+            swapBtn.addEventListener('click', function() {
+                const temp = fromCurrencySelect.value;
+                fromCurrencySelect.value = toCurrencySelect.value;
+                toCurrencySelect.value = temp;
+                
+                convert();
+                updateRateInfo();
+            });
+            
+            // Обработчик клика по результату для копирования
+            resultDiv.addEventListener('click', copyResultToClipboard);
+            
+            // Инициализация
+            loadRates();
+            setInterval(loadRates, 3600000); // Обновление каждый час
+        });
+    </script>
+</body>
+</html>
